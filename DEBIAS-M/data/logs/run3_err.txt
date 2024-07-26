@@ -1,0 +1,10 @@
+Setting levels: control = 0, case = 1
+Setting direction: controls > cases
+Setting levels: control = 0, case = 1
+Setting direction: controls > cases
+Setting levels: control = 0, case = 1
+Setting direction: controls > cases
+Setting levels: control = 0, case = 1
+Setting direction: controls > cases
+Setting levels: control = 0, case = 1
+Setting direction: controls > cases
