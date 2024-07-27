@@ -4,12 +4,20 @@ library(png)
 library(grid)
 library(gridExtra)
 library(ecodist)
+library(vegan)
 
 AUCs <- read.csv("./cluster_runs/pre_DEBIAS-M_100_perm/csv_files/AUCs.csv", colClasses = c("DEBIAS" = "factor"))
+lognorm <- read.csv("csv_files/log_DEBIAS-M.csv", colClasses = c("Phenotype" = "factor"))
+post_DEBIAS <- read.csv("csv_files/debiased_lognorm.csv", colClasses = c("Phenotype" = "factor"))
+debias_weights <- read.csv("csv_files/debias_weights.csv", row.names=1)
 phenos <- read.csv("./csv_files/phenotypes.csv")
+pval.df <- read.csv("./csv_files/DEBIAS-M_AUC_pvals.csv")
 IDs <- distinct(AUCs, Study_ID)$Study_ID
 
 dim(auc.df)
+
+##### histograms and p-val df ####
+# can make pval.df or histograms
 
 # pval.df <- data.frame(matrix(ncol = 3, nrow = 0))
 # colnames(pval.df) = c("Study_ID", "pval", "DEBIAS")
@@ -57,6 +65,8 @@ ggsave("./output/test_permutated/hist_100_perm_post_by_hand.pdf", marrangeGrob(g
 
 #### box plots ####
 
+# auc box plot
+
 selected_AUCs <- AUCs %>% filter(Permutation == 0) %>% merge(y = phenos, by.x = "Study_ID", by.y = "ID", all.x = TRUE) 
 selected_AUCs$phenotype[grep("cancer", selected_AUCs$phenotype)] <- "cancer"
 
@@ -70,8 +80,10 @@ auc_b <- ggplot(selected_AUCs, mapping = aes(x=DEBIAS, y=AUC)) +
 
 auc_b
 
-pval.df <- merge(pval.df, phenos, by.x = "Study_ID", by.y = "ID", all.x = TRUE)
-pval.df$phenotype[grep("cancer", pval.df$phenotype)] <- "cancer"
+# p-val box plot
+
+# pval.df <- merge(pval.df, phenos, by.x = "Study_ID", by.y = "ID", all.x = TRUE)
+# pval.df$phenotype[grep("cancer", pval.df$phenotype)] <- "cancer"
 # write.csv(pval.df, "./csv_files/DEBIAS-M_AUC_pvals.csv")
 
 pval_b <- ggplot(pval.df, mapping = aes(x = as.factor(DEBIAS), y = pval)) + 
@@ -91,8 +103,69 @@ dev.off()
 
 #### pcoa ####
 
-varespec.bray <- vegdist(varespec, method = "bray")
+pcoa <- function(df, chosen_title, pc = NULL){
+  bray <- vegdist(df, method = "bray")
+  pcoa_val <- pco(bray, negvals = "zero", dround = 0)
+  
+  if(!is.null(pc)){
+    
+    cat("example to access elements in the list: \n
+    l = pcoa(df)\n
+    l[1] # returns bray-curtis values\n
+    l[2] # returns the pcoa results\n
+    ls[2][[1]] # returns vectors and values which can be accessed via $\n
+    ex: ls[2][[1]]$vectors")
+    
+    return(list(bray, pcoa_val))
+  }
+  
+  pco.labels = lapply(row.names(pcoa_val$vectors), function(x) unlist(strsplit(x, split = ".", fixed=TRUE))[1]) # remove .numbers from the end of the row names
+  pcoa_val.df = data.frame(Study_ID = unlist(pco.labels),
+                         PCoA1 = pcoa_val$vectors[,1], 
+                         PCoA2 = pcoa_val$vectors[,2])
+  
+  pcoa_val.df = merge(pcoa_val.df, phenos, by.x = "Study_ID", by.y = "ID", all.x = TRUE)
+  pcoa_val.df$phenotype[grep("cancer", pcoa_val.df$phenotype)] = "cancer"
+  
+  pco.plot <- ggplot(data = pcoa_val.df, mapping = aes(x = PCoA1, y = PCoA2)) + 
+    geom_point(aes(col = as.factor(phenotype)), alpha = 0.7) +
+    scale_color_brewer(name = "phenotype", palette = "Paired") +
+    labs(title = chosen_title)
+  return(pco.plot)
+}
 
 
+
+# before debias-m count pcoa
+lg = lognorm
+
+rownames(lognorm) <- make.names(lognorm$Study_ID, unique = TRUE)
+rownames(lognorm) <- gsub("^X", "", rownames(lognorm))
+
+pcolg.plot = pcoa(lognorm[6:length(lognorm)], "PCoA on count data prior to DEBIAS-M")
+png("./output/test_permutated/box_pre_DEBIAS.png")
+pcolg.plot
+dev.off()
+
+# after debias-m count pcoa
+
+pd = post_DEBIAS
+rownames(post_DEBIAS) <- make.names(post_DEBIAS$Study_ID, unique = TRUE)
+rownames(post_DEBIAS) <- gsub("^X", "", rownames(post_DEBIAS))
+
+pcoadf.plot = pcoa(post_DEBIAS[4:length(post_DEBIAS)], "PCoA on count data after to DEBIAS-M")
+png("./output/test_permutated/box_post_DEBIAS.png")
+pcoadf.plot
+dev.off()
+
+# debias-m weights
+dw = debias_weights
+rownames(debias_weights) <- debias_weights$Study_ID
+debias_weights = debias_weights[,2:length(debias_weights)]
+scaled <- as.data.frame(scale(debias_weights))
+# verify means == 0 and sd == 1
+sapply(scaled, mean)
+
+pcodw.plot = pcoa(debias_weights, "PCoA on DEBIAS-M weights")
 
 

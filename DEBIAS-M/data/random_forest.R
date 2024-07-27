@@ -20,47 +20,45 @@ phenos <- read.csv("./csv_files/phenotypes.csv") # for naming the graphs
 # phenos <- phenos[grep("autism", phenos$phenotype),] 
 
 
-# IDs <- distinct(data, Study_ID)$Study_ID
-# IDs <- IDs[IDs %in% phenos$ID]
+
 
 #### log normalization ####
 
 # # LOGNORM
-# lognorm <- function(table)
-# {
-#   avg <- sum(rowSums(table))/nrow(table)
-#   table <- sweep(table,1,rowSums(table),"/")
-#   table <- log10(table*avg + 1)
-#   return(table)
-# }
-# 
-# lognorm_out <- lognorm(data[4:length(data)])
-# lognorm_out <- add_column(lognorm_out, Study_ID=data$Study_ID, .before = colnames(lognorm_out)[1])
-# lognorm_out <- add_column(lognorm_out, Phenotype=data$Phenotype, .before = colnames(lognorm_out)[1])
-# lognorm_out <- add_column(lognorm_out, sample_name=data$sample_name, .before = colnames(lognorm_out)[1])
-# 
-# lognorm_out <- lognorm_out %>% filter(Study_ID != 13241) %>% filter(Study_ID != 14812) %>% filter(Study_ID != 11712)
-# IDs <- distinct(lognorm_out, Study_ID)$Study_ID
-# 
-# #### Get lognorm_out ready for DEBIAS-M ####
-# 
-# df <- lognorm_out
-# df$ID = 0
-# for(i in 1:length(IDs)){
-#   
-#   # print(distinct(df, ID))
-#   # print(i)
-#   df$ID[df$Study_ID == IDs[i]] <- i-1
-# }
-# 
-# df$case <- case_when(
-#                    df$Phenotype == 1 ~ TRUE,
-#                    df$Phenotype == 0 ~ FALSE,
-#                    )
-# df <- relocate(df, ID, .after = Study_ID)
-# df <- relocate(df, case, .after = Study_ID)
-# 
-# write.csv(df, "./csv_files/log_DEBIAS-M.csv", row.names =FALSE)
+lognorm <- function(table)
+{
+  avg <- sum(rowSums(table))/nrow(table)
+  table <- sweep(table,1,rowSums(table),"/")
+  table <- log10(table*avg + 1)
+  return(table)
+}
+
+lognorm_out <- lognorm(data[4:length(data)])
+lognorm_out <- add_column(lognorm_out, Study_ID=data$Study_ID, .before = colnames(lognorm_out)[1])
+lognorm_out <- add_column(lognorm_out, Phenotype=data$Phenotype, .before = colnames(lognorm_out)[1])
+lognorm_out <- add_column(lognorm_out, sample_name=data$sample_name, .before = colnames(lognorm_out)[1])
+
+IDs <- distinct(lognorm_out, Study_ID)$Study_ID
+
+#### Get lognorm_out ready for DEBIAS-M ####
+
+df <- lognorm_out
+df$ID = 0
+for(i in 1:length(IDs)){
+
+  # print(distinct(df, ID))
+  # print(i)
+  df$ID[df$Study_ID == IDs[i]] <- i-1
+}
+
+df$case <- case_when(
+                   df$Phenotype == 1 ~ TRUE,
+                   df$Phenotype == 0 ~ FALSE,
+                   )
+df <- relocate(df, ID, .after = Study_ID)
+df <- relocate(df, case, .after = Study_ID)
+
+write.csv(df, "./csv_files/log_DEBIAS-M.csv", row.names =FALSE)
 
 #### permutations testing as a loop ####
 

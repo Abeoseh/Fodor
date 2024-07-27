@@ -14,7 +14,7 @@ combine_otus <- OTU_table
 
 
 seqs <- row.names(OTU_table)
-taxa <- assignTaxonomy(seqs, "C:/Users/brean/Downloads/masters/Fodor/Taxonomy_Dada2/silva_nr99_v138.1_train_set.fa.gz", multithread=TRUE)
+taxa <- assignTaxonomy(seqs, "C:/Users/brean/Downloads/masters/Taxonomy_Dada2/silva_nr99_v138.1_train_set.fa.gz", multithread=TRUE)
 
 
 
@@ -168,7 +168,7 @@ info_col <- function(ref.file_num, col_names, study_ID, ref.df, undesirable = NU
   inters <- intersect(names(r), names(ref))
   r <- merge(r, ref, by = inters, all = TRUE) 
   r <- aggregate(.~sample_name, data= r, FUN=sum, na.rm=TRUE, na.action = NULL)
-  # r <- aggregate(.~sample_name, data= r, FUN=sum, na.action = NULL)
+  # r <- aggregate(.~sample_name, data= r, FUN=sum, na.rm = TRUE, na.action = NULL)
   
   
   return(r)
@@ -247,12 +247,12 @@ r <- info_col(5, c("diagnosis", "sample_name"), 11710, d, "") # 96 blank samples
 
 # 11712
 
-j <- info(6)
-count(j, any_formula)
+# j <- info(6)
+# count(j, any_formula)
 
 d <- data.frame(k = c("yes", "no"),
                 Phenotype = c(1, 0))
-r <- info_col(6, c("any_formula", "sample_name"), 11712, d, "not collected") 
+r <- info_col(6, c("any_formula", "sample_name"), 11712, d, "not collected")
 
 
 
@@ -381,25 +381,24 @@ r <- info_col(16, c("chemotherapy", "sample_name"), 14669, d)
 
 # 14812
 
-j <- info(17)
-count(j, covid_positive)
-
-# j$group <- case_when(
-#   j$covid_positive == "no" ~ "case",
-#   j$covid_positive == "yes" ~ "control",
-#   j$covid_positive == "recovered" ~ "control")
+# j <- info(17)
+# count(j, covid_positive)
 # 
-# write.table(j, ref.files[17], sep="\t", col.names = TRUE)
-j <- info(17)
-count(j, group)
-
+# # j$group <- case_when(
+# #   j$covid_positive == "no" ~ "case",
+# #   j$covid_positive == "yes" ~ "control",
+# #   j$covid_positive == "recovered" ~ "control")
+# # 
+# # write.table(j, ref.files[17], sep="\t", col.names = TRUE)
+# j <- info(17)
+# count(j, group)
+# 
 d <- data.frame(k = c("case", "control"),
                 Phenotype = c(1, 0))
 r <- info_col(17, c("group", "sample_name"), 14812, d)
 
+
 # 15006
-
-
 
 j <- info(18)
 count(j, description)
@@ -413,8 +412,11 @@ r <- info_col(18, c("description", "sample_name"), 15006, d)
 
 save <- r
 final_df <- r
+
+
 filtered_cols = c()
 filtered_indicies = c()
+final_df = r %>% filter(Study_ID != 13241) %>% filter(Study_ID != 14812) %>% filter(Study_ID != 11712)
 
 for(i in 4:ncol(r)){
   if(sum(as.array(r[[colnames(r)[i]]]), na.rm = TRUE) <= 0){
@@ -425,14 +427,21 @@ for(i in 4:ncol(r)){
   
 }
 
+dim(r[,colSums(r[,4:length(r)]) <= 0])
+
 filtered_cols <- data.frame("columns" = filtered_cols, "indices" = filtered_indicies)
 
 final_df <- final_df[,-c(filtered_indicies)]
 
 
 
-#### write output to file ####
 
+#### write output to file ####
+final.df = r
+final.df = r %>% filter(Study_ID != 13241) %>% filter(Study_ID != 14812) %>% filter(Study_ID != 11712)
+
+final_df <- final.df %>% select(where(~ is.numeric(.x) && sum(.x) !=0 ))
+final_df <- add_column(final_df, sample_name=final.df$sample_name, .before = colnames(final_df)[1])
 write.csv(final_df, "./csv_files/DEBIAS-M.csv", row.names = FALSE)
 
 
