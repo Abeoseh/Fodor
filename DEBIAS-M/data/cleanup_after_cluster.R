@@ -3,13 +3,14 @@ library(dplyr)
 library(png)
 library(grid)
 library(gridExtra)
-library(ecodist)
+# library(ecodist)
 library(vegan)
+library(factoextra)
 
-AUCs <- read.csv("./cluster_runs/pre_DEBIAS-M_100_perm/csv_files/AUCs.csv", colClasses = c("DEBIAS" = "factor"))
+AUCs <- read.csv("./cluster_runs/DEBIAS-M_100_perm_fixed/csv_files/AUCs.csv", colClasses = c("DEBIAS" = "factor"))
 lognorm <- read.csv("csv_files/log_DEBIAS-M.csv", colClasses = c("Phenotype" = "factor"))
 post_DEBIAS <- read.csv("csv_files/debiased_lognorm.csv", colClasses = c("Phenotype" = "factor"))
-debias_weights <- read.csv("csv_files/debias_weights.csv", row.names=1)
+debias_weights <- read.csv("csv_files/debias_weights.csv", row.names=1, check.names = FALSE)
 phenos <- read.csv("./csv_files/phenotypes.csv")
 pval.df <- read.csv("./csv_files/DEBIAS-M_AUC_pvals.csv")
 IDs <- distinct(AUCs, Study_ID)$Study_ID
@@ -19,8 +20,8 @@ dim(auc.df)
 ##### histograms and p-val df ####
 # can make pval.df or histograms
 
-# pval.df <- data.frame(matrix(ncol = 3, nrow = 0))
-# colnames(pval.df) = c("Study_ID", "pval", "DEBIAS")
+pval.df <- data.frame(matrix(ncol = 3, nrow = 0))
+colnames(pval.df) = c("Study_ID", "pval", "DEBIAS")
 selected_AUCs <- filter(AUCs, DEBIAS == 0)
 
 for(i in 1:length(IDs)){
@@ -34,26 +35,26 @@ for(i in 1:length(IDs)){
   z = (a-mean(samp))/(sd(samp)/sqrt(1))
   for.pval = pnorm(z, lower.tail = FALSE)
   
-  # pval.df[nrow(pval.df) + 1,] = c(IDs[i], for.pval, FALSE)
+  # pval.df[nrow(pval.df) + 1,] = c(IDs[i], for.pval, TRUE)
   
-  png(paste("./cluster_runs/pre_DEBIAS-M_100_perm/output/by_hand/post_DEBIAS-M_RF_lognorm_histogram_", IDs[i], ".png", sep=""), width = 480, height = 480)
+  png(paste("./cluster_runs/DEBIAS-M_100_perm_fixed/output/pre_DEBIAS-M_RF_lognorm_histogram_fixed_", IDs[i], ".png", sep=""), width = 480, height = 480)
   g <- ggplot() + geom_histogram(data = filter(auc.df, Permutation == TRUE), aes(x = AUC), bins = 40) +
     geom_vline(filter(auc.df, Permutation == FALSE), mapping = aes(xintercept=AUC), color = "cornflowerblue") +
     labs(title = paste("Training without: ", IDs[i], " (", phen, ")", sep=""), y = "count") +
     annotate("label", x=min(auc.df$AUC)+.01, y=5, size = 3, label = paste("p= ", signif(for.pval, digits=3), sep="")) +
     scale_y_continuous(expand = expansion(mult = c(0, .1)))
 
-  
+
   print(g)
   dev.off()
 }
 
-
+# write.csv(pval.df, "./csv_files/DEBIAS-M_AUC_pvals.csv", row.names = FALSE)
 
 #### save histograms as a pdf ####
 
-all_images <- list.files("./cluster_runs/pre_DEBIAS-M_100_perm/output/by_hand", full.names = TRUE)
-ind <- grep("post_DEBIAS-M_RF_lognorm_histogram_", all_images)
+all_images <- list.files("./cluster_runs/DEBIAS-M_100_perm_fixed/output/", full.names = TRUE)
+ind <- grep("pre_DEBIAS-M_RF_lognorm_histogram_", all_images)
 all_images <- all_images[ind]
 
 plots <- lapply(ll <- all_images, function(x){
@@ -61,7 +62,7 @@ plots <- lapply(ll <- all_images, function(x){
   rasterGrob(img, interpolate = FALSE)
 })
 
-ggsave("./output/test_permutated/hist_100_perm_post_by_hand.pdf", marrangeGrob(grobs=plots, nrow=2, ncol=2), width = 4, height = 4, dpi = 300)
+ggsave("./output/test_permutated/hist_100_perm_pre_fixed.pdf", marrangeGrob(grobs=plots, nrow=2, ncol=2), width = 4, height = 4, dpi = 300)
 
 #### box plots ####
 
@@ -84,7 +85,7 @@ auc_b
 
 # pval.df <- merge(pval.df, phenos, by.x = "Study_ID", by.y = "ID", all.x = TRUE)
 # pval.df$phenotype[grep("cancer", pval.df$phenotype)] <- "cancer"
-# write.csv(pval.df, "./csv_files/DEBIAS-M_AUC_pvals.csv")
+# write.csv(pval.df, "./csv_files/DEBIAS-M_AUC_pvals.csv", row.names = FALSE)
 
 pval_b <- ggplot(pval.df, mapping = aes(x = as.factor(DEBIAS), y = pval)) + 
   geom_boxplot() +
@@ -135,7 +136,6 @@ pcoa <- function(df, chosen_title, pc = NULL){
 }
 
 
-
 # before debias-m count pcoa
 lg = lognorm
 
@@ -143,29 +143,50 @@ rownames(lognorm) <- make.names(lognorm$Study_ID, unique = TRUE)
 rownames(lognorm) <- gsub("^X", "", rownames(lognorm))
 
 pcolg.plot = pcoa(lognorm[6:length(lognorm)], "PCoA on count data prior to DEBIAS-M")
-png("./output/test_permutated/box_pre_DEBIAS.png")
+pcolg.plot
+png("./output/test_permutated/pcoa_pre_DEBIAS.png")
 pcolg.plot
 dev.off()
 
-# after debias-m count pcoa
+# after debias-m count pca
 
 pd = post_DEBIAS
 rownames(post_DEBIAS) <- make.names(post_DEBIAS$Study_ID, unique = TRUE)
 rownames(post_DEBIAS) <- gsub("^X", "", rownames(post_DEBIAS))
 
 pcoadf.plot = pcoa(post_DEBIAS[4:length(post_DEBIAS)], "PCoA on count data after to DEBIAS-M")
-png("./output/test_permutated/box_post_DEBIAS.png")
+pcoadf.plot
+png("./output/test_permutated/pcoa_post_DEBIAS.png")
 pcoadf.plot
 dev.off()
 
+#### PCA weights ####
 # debias-m weights
 dw = debias_weights
-rownames(debias_weights) <- debias_weights$Study_ID
-debias_weights = debias_weights[,2:length(debias_weights)]
+debias_weights = t(debias_weights)
+debias_weights = data.frame(debias_weights)
+# rownames(debias_weights) <- debias_weights$Study_ID
+# debias_weights = debias_weights[,2:length(debias_weights)]
 scaled <- as.data.frame(scale(debias_weights))
 # verify means == 0 and sd == 1
 sapply(scaled, mean)
+sapply(scaled, sd)
 
-pcodw.plot = pcoa(debias_weights, "PCoA on DEBIAS-M weights")
 
+dw_pca <- prcomp(scaled)
+var = get_pca_var(dw_pca)
+dwpca.df = as.data.frame(dw_pca$contrib)
+dwpca.df = as.data.frame(dw_pca$x)
+dwpca.df$Study_ID = row.names(dwpca.df)
+dwpca.df = merge(dwpca.df, phenos, by.x = "Study_ID", by.y = "ID", all.x = TRUE)
+dwpca.df$phenotype[grep("cancer", dwpca.df$phenotype)] = "cancer"
 
+dwpca.plot = ggplot(dwpca.df, mapping = aes(x = PC1, y = PC2)) +
+  geom_point(aes(col = as.factor(phenotype))) +
+  scale_color_brewer(name = "phenotype", palette = "Paired") +
+  labs(title = "PCA of weights")
+dwpca.plot
+
+png("./output/test_permutated/PCA_weights.png")
+dwpca.plot
+dev.off()
