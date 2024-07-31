@@ -101,7 +101,7 @@ r <- columns_to_filter(r, c("sample_name", "geo_loc_name"), 1, "Ghana")
 r <- columns_to_filter(r, c("sample_name", "empo_3"), 4, "Animal distal gut")
 
 # file 11712
-r <- columns_to_filter(r, c("sample_name", "empo_3"), 6, "Animal distal gut")
+# r <- columns_to_filter(r, c("sample_name", "empo_3"), 6, "Animal distal gut")
 
 # file 13241
 r <- columns_to_filter(r, c("sample_name", "empo_3"), 10, "Animal distal gut")
@@ -250,9 +250,9 @@ r <- info_col(5, c("diagnosis", "sample_name"), 11710, d, "") # 96 blank samples
 # j <- info(6)
 # count(j, any_formula)
 
-d <- data.frame(k = c("yes", "no"),
-                Phenotype = c(1, 0))
-r <- info_col(6, c("any_formula", "sample_name"), 11712, d, "not collected")
+# d <- data.frame(k = c("yes", "no"),
+#                 Phenotype = c(1, 0))
+# r <- info_col(6, c("any_formula", "sample_name"), 11712, d, "not collected")
 
 
 
@@ -307,10 +307,10 @@ r <- info_col(9, c("group", "sample_name"), 13187, d)
 
 # 13241
 # j <- info(10)
-# count(j, diagnosis)
-d <- data.frame(k = c("asthma", "control"),
-                Phenotype = c(1, 0))
-r <- info_col(10, c("diagnosis", "sample_name"), 13241, d, "not applicable") # amount of samples do not change since I filtered not app. samples with columns_to_filter()
+# # count(j, diagnosis)
+# d <- data.frame(k = c("asthma", "control"),
+#                 Phenotype = c(1, 0))
+# r <- info_col(10, c("diagnosis", "sample_name"), 13241, d, "not applicable") # amount of samples do not change since I filtered not app. samples with columns_to_filter()
 
 
 # 13338
@@ -393,9 +393,9 @@ r <- info_col(16, c("chemotherapy", "sample_name"), 14669, d)
 # j <- info(17)
 # count(j, group)
 # 
-d <- data.frame(k = c("case", "control"),
-                Phenotype = c(1, 0))
-r <- info_col(17, c("group", "sample_name"), 14812, d)
+# d <- data.frame(k = c("case", "control"),
+#                 Phenotype = c(1, 0))
+# r <- info_col(17, c("group", "sample_name"), 14812, d)
 
 
 # 15006
@@ -438,7 +438,7 @@ final_df <- final_df[,-c(filtered_indicies)]
 
 #### write output to file ####
 final.df = r
-final.df = r %>% filter(Study_ID != 13241) %>% filter(Study_ID != 14812) %>% filter(Study_ID != 11712)
+# final.df = r %>% filter(Study_ID != 13241) %>% filter(Study_ID != 14812) %>% filter(Study_ID != 11712)
 
 final_df <- final.df %>% select(where(~ is.numeric(.x) && sum(.x) !=0 ))
 final_df <- add_column(final_df, sample_name=final.df$sample_name, .before = colnames(final_df)[1])

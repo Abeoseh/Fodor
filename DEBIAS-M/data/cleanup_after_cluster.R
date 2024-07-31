@@ -15,7 +15,6 @@ phenos <- read.csv("./csv_files/phenotypes.csv")
 pval.df <- read.csv("./csv_files/DEBIAS-M_AUC_pvals.csv")
 IDs <- distinct(AUCs, Study_ID)$Study_ID
 
-dim(auc.df)
 
 ##### histograms and p-val df ####
 # can make pval.df or histograms
@@ -74,9 +73,10 @@ selected_AUCs$phenotype[grep("cancer", selected_AUCs$phenotype)] <- "cancer"
 auc_b <- ggplot(selected_AUCs, mapping = aes(x=DEBIAS, y=AUC)) + 
   geom_boxplot() + 
   geom_point(aes(col = as.factor(phenotype)), alpha = 2) +
-  scale_color_brewer(name = "pehnotype", palette = "Paired") +
+  scale_color_brewer(name = "pehnotype", palette = "Paired", guide = "none") +
   scale_x_discrete(labels = c("Before DEBIAS-M", "After DEBIAS-M")) +
   labs(x = "", title = "AUCs before and after DEBIAS-M") +
+  ylim(0.4, 1.0) +
   theme_dark()
 
 auc_b
@@ -87,17 +87,17 @@ auc_b
 # pval.df$phenotype[grep("cancer", pval.df$phenotype)] <- "cancer"
 # write.csv(pval.df, "./csv_files/DEBIAS-M_AUC_pvals.csv", row.names = FALSE)
 
-pval_b <- ggplot(pval.df, mapping = aes(x = as.factor(DEBIAS), y = pval)) + 
+pval_b <- ggplot(pval.df, mapping = aes(x = as.factor(DEBIAS), y = log(pval, base = 10))) + 
   geom_boxplot() +
   geom_point(aes(col = as.factor(phenotype))) +
   scale_color_brewer(name = "phenotype", palette = "Paired") +
   scale_x_discrete(labels = c("Before DEBIAS-M", "After DEBIAS-M")) +
-  labs(x = "", title = "pvalues before and after DEBIAS-M") +
+  labs(x = "", y = "log10 p-value)", title = "p-values before and after DEBIAS-M") +
   theme_dark()
 
 pval_b
 
-png("./output/test_permutated/box_AUC_pval.png", width = 1000, height = 480)
+png("./output/leaky/box_AUC_pval_leaky.png", width = 1000, height = 480)
 grid.arrange(auc_b, pval_b, nrow = 1)
 dev.off()
 
@@ -154,7 +154,7 @@ pd = post_DEBIAS
 rownames(post_DEBIAS) <- make.names(post_DEBIAS$Study_ID, unique = TRUE)
 rownames(post_DEBIAS) <- gsub("^X", "", rownames(post_DEBIAS))
 
-pcoadf.plot = pcoa(post_DEBIAS[4:length(post_DEBIAS)], "PCoA on count data after to DEBIAS-M")
+pcoadf.plot = pcoa(post_DEBIAS[4:length(post_DEBIAS)], "PCoA on count data after DEBIAS-M")
 pcoadf.plot
 png("./output/test_permutated/pcoa_post_DEBIAS.png")
 pcoadf.plot
@@ -168,25 +168,35 @@ debias_weights = data.frame(debias_weights)
 # rownames(debias_weights) <- debias_weights$Study_ID
 # debias_weights = debias_weights[,2:length(debias_weights)]
 scaled <- as.data.frame(scale(debias_weights))
-# verify means == 0 and sd == 1
+# verify mean == 0 and sd == 1
 sapply(scaled, mean)
 sapply(scaled, sd)
 
 
 dw_pca <- prcomp(scaled)
 var = get_pca_var(dw_pca)
-dwpca.df = as.data.frame(dw_pca$contrib)
+dwpcacontr.df = as.data.frame(var$contrib)
+(dw_pca$sdev)^2
+pca_contr = summary(dw_pca)$importance[2,]
+
 dwpca.df = as.data.frame(dw_pca$x)
 dwpca.df$Study_ID = row.names(dwpca.df)
 dwpca.df = merge(dwpca.df, phenos, by.x = "Study_ID", by.y = "ID", all.x = TRUE)
 dwpca.df$phenotype[grep("cancer", dwpca.df$phenotype)] = "cancer"
 
-dwpca.plot = ggplot(dwpca.df, mapping = aes(x = PC1, y = PC2)) +
+dwpca.plot = ggplot(dwpca.df, mapping = aes(x = PC3, y = PC4)) +
   geom_point(aes(col = as.factor(phenotype))) +
   scale_color_brewer(name = "phenotype", palette = "Paired") +
-  labs(title = "PCA of weights")
+  labs(title = "PCA of weights", x = paste("PC3 (", pca_contr[3], ")", sep = ""), y = paste("PC3 (", pca_contr[4],")", sep=""))
 dwpca.plot
 
-png("./output/test_permutated/PCA_weights.png")
+# same plot but with study labels instead
+dwpca_labels.plot = ggplot(dwpca.df, mapping = aes(x = PC3, y = PC4)) +
+  geom_point(color = "white") +
+  geom_text(mapping = aes(label = Study_ID)) +
+  labs(title = "PCA of weights")
+dwpca_labels.plot
+
+png("./output/test_permutated/PCA_weights_PC3-4_leaky.png")
 dwpca.plot
 dev.off()
