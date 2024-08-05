@@ -9,9 +9,9 @@ library(factoextra)
 library(lemon)
 
 AUCs <- read.csv("./csv_files/semi_leaky_AUCs.csv", colClasses = c("DEBIAS" = "factor"))
-post_DEBIAS <- list.files("./cluster_runs/DEBIAS-M_semi_leaky/csv_files/DEBIAS-M_runs/semi_leaky/",
+post_DEBIAS_files <- list.files("./cluster_runs/DEBIAS-M_semi_leaky/csv_files/DEBIAS-M_runs/semi_leaky/",
                           pattern = "debiased_lognorm", full.names = TRUE)
-debias_weights <- list.files("./cluster_runs/DEBIAS-M_semi_leaky/csv_files/DEBIAS-M_runs/semi_leaky/",
+debias_weights_files <- list.files("./cluster_runs/DEBIAS-M_semi_leaky/csv_files/DEBIAS-M_runs/semi_leaky/",
                              pattern = "debias_weights", full.names = TRUE)
 phenos <- read.csv("./csv_files/phenotypes.csv")
 pval.df <- read.csv("./csv_files/AUC_pvals_semi_leaky.csv")
@@ -23,30 +23,32 @@ IDs <- distinct(AUCs, Study_ID)$Study_ID
 a = list.files("./cluster_runs/DEBIAS-M_semi_leaky/csv_files/AUCs/semi_leaky/",
                pattern = "post_DEBIAS", full.names = TRUE)
 
-AUCs = read.csv(a[1])
-for(i in 2:length(a)){
-  d = read.csv(a[i])
-  AUCs = rbind(AUCs, d) 
-}
-write.csv(AUCs, "./csv_files/semi_leaky_AUCs.csv", row.names = FALSE)
+# AUCs = read.csv(a[1])
+# for(i in 2:length(a)){
+#   d = read.csv(a[i])
+#   AUCs = rbind(AUCs, d) 
+# }
+# write.csv(AUCs, "./csv_files/semi_leaky_AUCs.csv", row.names = FALSE)
+
 ##### histograms and p-val df ####
 # can make pval.df or histograms
 
-pval.df <- data.frame(matrix(ncol = 3, nrow = 0))
-colnames(pval.df) = c("Study_ID", "pval", "DEBIAS")
+# pval.df <- data.frame(matrix(ncol = 3, nrow = 0))
+# colnames(pval.df) = c("Study_ID", "pval", "DEBIAS")
+
 
 for(i in 1:length(IDs)){
   
-  phen <- phenos[phenos$ID == IDs[i],]$phenotype
+  # phen <- phenos[phenos$ID == IDs[i],]$phenotype
   
   auc.df <- filter(AUCs, Study_ID == IDs[i])
-  
+
   a <- auc.df[auc.df$Permutation == 0,]$AUC
   samp <- auc.df[auc.df$Permutation == 1,]$AUC
   z = (a-mean(samp))/(sd(samp)/sqrt(1))
   for.pval = pnorm(z, lower.tail = FALSE)
   
-  pval.df[nrow(pval.df) + 1,] = c(IDs[i], for.pval, TRUE)
+  pval.df[nrow(pval.df) + 1,] = c(IDs[i], for.pval, 0.5)
   
   # png(paste("./cluster_runs/DEBIAS-M_100_perm_fixed/output/pre_DEBIAS-M_RF_lognorm_histogram_fixed_", IDs[i], ".png", sep=""), width = 480, height = 480)
   # g <- ggplot() + geom_histogram(data = filter(auc.df, Permutation == TRUE), aes(x = AUC), bins = 40) +
@@ -82,14 +84,17 @@ ggsave("./output/semi_leaky/hist_100_perm_semi_leaky.pdf", marrangeGrob(grobs=pl
 #### box plots ####
 
 # auc box plot
-a = AUCs
-AUCs = a
+au = AUCs
+AUCs = au
 
-# t-test between leaky and semi-leaky: t = 0.57981, df = 3027.8, p-value = 0.5621
+# Wilcoxon between leaky and semi-leaky: V = 17, p-value = 0.01245
+# Wilcoxon between baseline and semi-leay: V = 43, p-value = 0.3591
 neg_auc$DEBIAS = as.factor(neg_auc$DEBIAS)
+AUCs$DEBIAS = as.factor(AUCs$DEBIAS)
 AUCs <- rbind(AUCs, neg_auc)
-t_auc = AUCs %>% select(DEBIAS, AUC) %>% filter(DEBIAS != 0)
-with(t_auc, t.test(AUC[DEBIAS == 1], AUC[DEBIAS == 0.5]), alternative = "two.sided")
+t_auc = AUCs %>% filter(Permutation == 0 & DEBIAS != 0) %>% select(DEBIAS, AUC) #%>% filter(DEBIAS != 0)
+with(t_auc, wilcox.test(AUC[DEBIAS == 0.5], AUC[DEBIAS == 1], alternative = "two.sided", paired = TRUE))
+# wilcox.test(t_auc$AUC[t_auc$DEBIAS == 1], t_auc$AUC[t_auc$DEBIAS == 0.5], paired = TRUE, alternative = "two.sided")
 
 AUCs$DEBIAS <- as.numeric(levels(AUCs$DEBIAS))[(AUCs$DEBIAS)]
 selected_AUCs <- AUCs %>% filter(Permutation == 0) %>% merge(y = phenos, by.x = "Study_ID", by.y = "ID", all.x = TRUE) %>% arrange(desc(DEBIAS))
@@ -101,22 +106,27 @@ auc_b <- ggplot(selected_AUCs, mapping = aes(x=as.factor(DEBIAS), y=AUC)) +
   scale_x_discrete(labels = c("Before DEBIAS-M", "After DEBIAS-M (leaky)", "After DEBIAS-M (semi-leaky)")) +
   labs(x = "", title = "AUCs before and after DEBIAS-M") +
   ylim(0.4, 1.0) +
+  geom_signif(annotation = "*",
+              y_position = 0.95, xmin = 2, xmax = 3) +
   theme_dark()
 
 auc_b
 
 # p-val box plot
-pval.df = p
-# p= pval.df
+pval.df = pv
+# pv = pval.df
 
-# t-test between leaky and semi-leaky: t = 2.1986, df = 21.152, p-value = 0.03916
+# Wilcoxon between leaky and semi-leaky: V = 113, p-value = 0.00116
+# Wilcoxon between baseline and semi-leay: V = 43, p-value = 0.3591
 
 
 neg_pval$DEBIAS = as.factor(neg_pval$DEBIAS)
 pval.df$DEBIAS = as.factor(pval.df$DEBIAS)
 pval.df <- rbind(pval.df, neg_pval)
+# write.csv(t_pval, "wilcox_pval.csv", row.names = FALSE)
 t_pval = pval.df %>% select(DEBIAS, pval) %>% filter(DEBIAS != 0)
-with(t_pval, t.test(pval[DEBIAS == 1], pval[DEBIAS == 0.5]), alternative = "two.sided")
+# t_pval$DEBIAS <- factor(t_pval$DEBIAS)
+with(t_pval, wilcox.test(pval[DEBIAS == 0.5], pval[DEBIAS == 1], alternative = "two.sided", paired = TRUE))
 
 pval.df$DEBIAS <- as.numeric(levels(pval.df$DEBIAS))[(pval.df$DEBIAS)]
 pval.df <- pval.df %>% arrange(desc(DEBIAS))
@@ -126,11 +136,13 @@ pval_b <- ggplot(pval.df, mapping = aes(x = as.factor(DEBIAS), y = log(pval, bas
   scale_color_brewer(name = "phenotype", palette = "Paired") +
   scale_x_discrete(labels = c("Before DEBIAS-M", "After DEBIAS-M (leaky)", "After DEBIAS-M (semi-leaky)")) +
   labs(x = "", y = "log10 p-value", title = "p-values before and after DEBIAS-M") +
-  theme_dark()
+  geom_signif(annotation = "*",
+              y_position = 1, xmin = 2, xmax = 3) +
+  theme_dark() 
 
 pval_b
 
-png("./output/semi_leaky/box_AUC_pval_semi_leaky.png", width = 1000, height = 480)
+png("./output/semi_leaky/box_AUC_pval_semi_leaky.png", width = 1050, height = 480)
 grid.arrange(auc_b, pval_b, nrow = 1)
 dev.off()
 
@@ -169,46 +181,104 @@ pcoa <- function(df, chosen_title, pc = NULL){
 }
 
 
-# after debias-m count pca
+# after debias-m count pcoa
 
-pd = post_DEBIAS
+# pd = post_DEBIAS_files
 
-for(i in 1:length(pd)){
-  post_DEBIAS <- read.csv(pd[i])
+for(i in 1:length(post_DEBIAS_files)){
+  post_DEBIAS <- read.csv(post_DEBIAS_files[i])
   rownames(post_DEBIAS) <- make.names(post_DEBIAS$Study_ID, unique = TRUE)
   rownames(post_DEBIAS) <- gsub("^X", "", rownames(post_DEBIAS))
   
   if((i+1)%%2 == 0 & (i+1)%%4 != 0){
-    p1 = pcoa(post_DEBIAS[4:length(post_DEBIAS)], paste("PCoA on ", IDs[i], " count data after DEBIAS-M", sep = ""))
+    p1 = pcoa(post_DEBIAS[4:length(post_DEBIAS)], paste("PCoA on ", IDs[i], " post count data.", sep = ""))
     print(paste(i, "p1"))}
 
   if(i%%2 == 0 & i%%4 != 0){
-    p2 = pcoa(post_DEBIAS[4:length(post_DEBIAS)], paste("PCoA on ", IDs[i], " count data after DEBIAS-M", sep = ""))
+    p2 = pcoa(post_DEBIAS[4:length(post_DEBIAS)], paste("PCoA on ", IDs[i], " post count data", sep = ""))
     print(paste(i, "p2"))}
 
   if((i+1)%%4 == 0){
-    p3 = pcoa(post_DEBIAS[4:length(post_DEBIAS)], paste("PCoA on ", IDs[i], " count data after DEBIAS-M", sep = ""))
+    p3 = pcoa(post_DEBIAS[4:length(post_DEBIAS)], paste("PCoA on ", IDs[i], " post count data", sep = ""))
     print(paste(i, "p3"))}
 
   if(i%%4 == 0){
-    p4 = pcoa(post_DEBIAS[4:length(post_DEBIAS)], paste("PCoA on ", IDs[i], " count data after DEBIAS-M", sep = ""))
+    p4 = pcoa(post_DEBIAS[4:length(post_DEBIAS)], paste("PCoA on ", IDs[i], " post count data", sep = ""))
     print(paste(i, "p4"))
     
   
     png(paste("./output/semi_leaky/pcoa_post_DEBIAS",i-3,"-",i ,".png", sep=""))
-    p1
     grid_arrange_shared_legend(p1, p2, p3, p4, ncol = 2, nrow = 2)
-    print(p)
     dev.off()
-    }
+   }
+  if(i == 15){
+    png(paste("./output/semi_leaky/pcoa_post_DEBIAS",i-2,"-",i ,".png", sep=""))
+    grid_arrange_shared_legend(p1, p2, p3, ncol = 2, nrow = 2)
+    dev.off() 
+  }
   print(paste(i, " of ", length(pd), " done ", sep = ""))
 }
 
 #### PCA weights ####
-# debias-m weights
-grid_arrange_shared_legend(p1, p2, p3, p4, ncol = 2, nrow = 2)
 
-dw = debias_weights
+pca_plot <- function(df, chosen_title, first_PC, second_PC){
+  
+  dw_pca <- prcomp(scaled)
+  var = get_pca_var(dw_pca)
+  dwpcacontr.df = as.data.frame(var$contrib)
+  pca_contr = summary(dw_pca)$importance[2,]
+  
+  dwpca.df = as.data.frame(dw_pca$x)
+  dwpca.df$Study_ID = row.names(dwpca.df)
+  dwpca.df = merge(dwpca.df, phenos, by.x = "Study_ID", by.y = "ID", all.x = TRUE)
+  dwpca.df$phenotype[grep("cancer", dwpca.df$phenotype)] = "cancer"
+
+  dwpca.plot = ggplot(dwpca.df, aes(x = .data[[first_PC]], y = .data[[second_PC]])) +
+    geom_point(aes(col = as.factor(phenotype))) +
+    scale_color_brewer(name = "phenotype", palette = "Paired") +
+    labs(title = chosen_title, x = paste(first_PC, "(", pca_contr[[first_PC]], ")", sep = ""), y = paste(second_PC, "(", pca_contr[[second_PC]],")", sep=""))
+  
+}
+
+
+dw = debias_weights_files
+
+for(i in 1:length(debias_weights_files)){
+  debias_weights <- read.csv(debias_weights_files[i], check.names = FALSE, row.names = 1)
+  debias_weights = t(debias_weights)
+  debias_weights = data.frame(debias_weights)
+  
+  scaled <- as.data.frame(scale(debias_weights))
+  
+  if((i+1)%%2 == 0 & (i+1)%%4 != 0){
+    p1 = pca_plot(scaled, paste(IDs[i],": PCA on weights", sep = ""), "PC1", "PC2")
+    print(paste(i, "p1"))}
+  
+  if(i%%2 == 0 & i%%4 != 0){
+    p2 = pca_plot(scaled, paste(IDs[i],": PCA on weights", sep = ""), "PC1", "PC2")
+    print(paste(i, "p2"))}
+  
+  if((i+1)%%4 == 0){
+    p3 = pca_plot(scaled, paste(IDs[i],": PCA on weights", sep = ""), "PC1", "PC2")
+    print(paste(i, "p3"))}
+  
+  if(i%%4 == 0){
+    p4 = pca_plot(scaled, paste(IDs[i],": PCA on weights", sep = ""), "PC1", "PC2")
+    print(paste(i, "p4"))
+    
+    png(paste("./output/semi_leaky/pca_post_DEBIAS",i-3,"-",i ,".png", sep=""))
+    grid_arrange_shared_legend(p1, p2, p3, p4, ncol = 2, nrow = 2)
+    dev.off()
+  }
+  if(i == 15){
+    png(paste("./output/semi_leaky/pca_post_DEBIAS",i-2,"-",i ,".png", sep=""))
+    grid_arrange_shared_legend(p1, p2, p3, ncol = 2, nrow = 2)
+    dev.off() 
+  }
+  print(paste(i, " of ", length(pd), " done ", sep = ""))
+}
+
+
 for(i in 1:length(dw)){
   debias_weights = t(debias_weights)
   debias_weights = data.frame(debias_weights)

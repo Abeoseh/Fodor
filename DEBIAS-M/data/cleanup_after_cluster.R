@@ -187,7 +187,7 @@ dwpca.df$phenotype[grep("cancer", dwpca.df$phenotype)] = "cancer"
 dwpca.plot = ggplot(dwpca.df, mapping = aes(x = PC3, y = PC4)) +
   geom_point(aes(col = as.factor(phenotype))) +
   scale_color_brewer(name = "phenotype", palette = "Paired") +
-  labs(title = "PCA of weights", x = paste("PC3 (", pca_contr[3], ")", sep = ""), y = paste("PC3 (", pca_contr[4],")", sep=""))
+  labs(title = "PCA of weights", x = paste("PC3 (", pca_contr[3], ")", sep = ""), y = paste("PC4 (", pca_contr[4],")", sep=""))
 dwpca.plot
 
 # same plot but with study labels instead
@@ -197,6 +197,6 @@ dwpca_labels.plot = ggplot(dwpca.df, mapping = aes(x = PC3, y = PC4)) +
   labs(title = "PCA of weights")
 dwpca_labels.plot
 
-png("./output/test_permutated/PCA_weights_PC3-4_leaky.png")
+png("./output/leaky/PCA_weights_PC3-4_leaky.png")
 dwpca.plot
 dev.off()

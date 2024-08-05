@@ -9,6 +9,7 @@ suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(BSDA))
 suppressPackageStartupMessages(library(randomForest))
 suppressPackageStartupMessages(library(pROC))
+library(tidyverse)
 # library(stats)
 # library(tibble)
 suppressPackageStartupMessages(library(ggplot2))
@@ -21,17 +22,77 @@ phenos <- read.csv("./csv_files/phenotypes.csv") # for naming the graphs
 
 
 
+l <- read.csv("./csv_files/log_DEBIAS-M.csv")
 
 #### log normalization ####
 
-# # LOGNORM
-lognorm <- function(table)
+#### understanding how lognorm works
+df = data.frame(x = c(0.5562311, 3.6971959, 3.2208731),
+                y = c(1.9747480, 0.1881033, 1.0193071))
+
+n = 0.5562311 + 1.9747480
+sum_x = 0.5562311 + 1.9747480 + 3.6971959 + 0.1881033 + 3.2208731 + 1.0193071
+pc = 1
+N = 3
+
+log10((0.5562311/n)*(sum_x/3)+1)
+
+#### LOGNORM
+lognorm <- function(table, dataframe, csv_file, filter = NULL, return_table = NULL)
 {
   avg <- sum(rowSums(table))/nrow(table)
   table <- sweep(table,1,rowSums(table),"/")
   table <- log10(table*avg + 1)
-  return(table)
+  
+  table <- add_column(table, Study_ID=dataframe$Study_ID, .before = colnames(table)[1])
+  table <- add_column(table, Phenotype=dataframe$Phenotype, .before = colnames(table)[1])
+  table <- add_column(table, sample_name=dataframe$sample_name, .before = colnames(table)[1])
+  IDs <- distinct(table, Study_ID)$Study_ID
+  table$ID = 0
+  for(i in 1:length(IDs)){
+    
+    # print(distinct(df, ID))
+    # print(i)
+    table$ID[table$Study_ID == IDs[i]] <- i-1
+  }
+  
+  table$case <- case_when(
+    table$Phenotype == 1 ~ TRUE,
+    table$Phenotype == 0 ~ FALSE,
+  )
+  table <- relocate(table, ID, .after = Study_ID)
+  table <- relocate(table, case, .after = Study_ID)
+  
+  if(!is.null(filter)){
+    final_df <- table
+    
+    
+    filtered_cols = c()
+    filtered_indicies = c()
+
+    for(i in 4:ncol(table)){
+      if(sum(as.array(table[[colnames(table)[i]]]), na.rm = TRUE) <= 0){
+        filtered_cols <- append(filtered_cols, colnames(table)[i])
+        filtered_indicies <- append(filtered_indicies, i)
+      } 
+    }
+    
+    filtered_cols <- data.frame("columns" = filtered_cols, "indices" = filtered_indicies)
+    final_df <- final_df[,-c(filtered_indicies)]
+    write.csv(final_df, csv_file, row.names = FALSE)
+  }
+  
+  else(write.csv(table, csv_file, row.names = FALSE))
+  
+  if(!is.null(return_table)){return(table)}
+  
 }
+
+cancer = filter(data, Study_ID == 10959 | Study_ID == 14130 | Study_ID == 14669)
+lognorm(cancer[4:length(cancer)], cancer, "./csv_files/cancer_log_DEBIAS-M.csv", filter = TRUE)
+
+autism = filter(data, Study_ID == 13631 | Study_ID == 13652 | Study_ID == 13695)
+lognorm(autism[4:length(autism)], autism, "./csv_files/autism_log_DEBIAS-M.csv", filter = TRUE)
 
 lognorm_out <- lognorm(data[4:length(data)])
 lognorm_out <- add_column(lognorm_out, Study_ID=data$Study_ID, .before = colnames(lognorm_out)[1])
@@ -39,6 +100,9 @@ lognorm_out <- add_column(lognorm_out, Phenotype=data$Phenotype, .before = colna
 lognorm_out <- add_column(lognorm_out, sample_name=data$sample_name, .before = colnames(lognorm_out)[1])
 
 IDs <- distinct(lognorm_out, Study_ID)$Study_ID
+
+
+
 
 #### Get lognorm_out ready for DEBIAS-M ####
 
